@@ -710,7 +710,7 @@ You may try connecting insecurely, or install the module and try again.\n} if $@
 	}
 
 	if ($conf->{'binddn'}) {
-		if($conf->{'promptpass'}) {
+		if ( $conf->{'promptpass'} ) {
 			# Prompt for a password after disabling local echo.
 			#
 			print "Bind password: ";
@@ -762,17 +762,20 @@ You may try connecting insecurely, or install the module and try again.\n} if $@
 	if ( $use_sasl ) {
 		my $serv = $conf->{'server'};
 		$serv =~ s!^ldap[si]?://!!;
-		$sasl = Authen::SASL->new( mechanism => $conf->{'sasl'} );
+		my $user = $1 if $conf->{'binddn'} =~ /uid=([^,]*),/i;
+		my $callback = {
+			pass => $conf->{'bindpass'},
+			user => $user
+		};
+
+		$sasl = Authen::SASL->new( mechanism => $conf->{'sasl'}, callback => $callback );
 		$sasl_conn = $sasl->client_new( 'ldap', $serv );
 	}
 
 	# bind with sasl
 	#
 	if ( $sasl_conn ) {
-		$rv = $ldap->bind( $conf->{'binddn'},
-			password => $conf->{'bindpass'},
-			sasl     => $sasl_conn
-		);
+		$rv = $ldap->bind( $conf->{'binddn'}, sasl => $sasl_conn );
 	}
 
 	# simple bind as an authenticated dn
@@ -786,7 +789,7 @@ You may try connecting insecurely, or install the module and try again.\n} if $@
 	# bind anonymously
 	#
 	else {
-		$rv = $sasl_conn ? $ldap->bind( sasl => $sasl_conn ) : $ldap->bind();
+		$rv = $ldap->bind();
 	}
 
 	my $err = $rv->error();
